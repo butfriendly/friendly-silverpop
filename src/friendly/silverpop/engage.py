@@ -274,6 +274,15 @@ class EngageApi(EngageApiCore):
                 raise Exception('No Session')
 
     def login(self, username=None, password=None):
+        """Logs in to Engage's API.
+
+        Args:
+            username (str): Username to use when logging in. Overrides username given at instantiaton.
+            password (str): Password to use when logging in. Overrides password given at instantiaton.
+
+        Returns:
+            bool -- Wether the login was successful for not
+        """
         if not username:
             username = self._username
 
@@ -296,6 +305,7 @@ class EngageApi(EngageApiCore):
         return success
 
     def logout(self):
+        """Logs out from Engage's API and removes the session"""
         body_node, doc = self._generate_envelope('Logout')
 
         response = self._request(doc)
@@ -307,6 +317,15 @@ class EngageApi(EngageApiCore):
         return success
 
     def get_lists(self, visibility, list_type):
+        """Fetches lists.
+
+        Args:
+            visibility (int): Visibility of the lists you want to fetch.
+            list_type (int): Type of lists you want to fetch
+
+        Returns:
+            list -- List of lists. Whereby the type depends on the list_type you requested.
+        """
         body_node, doc = self._generate_envelope('GetLists')
 
         self._append_text_node_to('VISIBILITY', str(visibility), body_node)
@@ -364,7 +383,17 @@ class EngageApi(EngageApiCore):
         print success, self.error
 
     def get_list_meta_data(self, list):
-        """Fetches meta-data and updates list"""
+        """Fetches meta-data and updates the list with 'em.
+
+        Args:
+            list (List): List you want to fetch the meta-data for.
+
+        Returns:
+            bool -- Tells you wether the operation was successful or not
+
+        .. note::
+            ``KEY_COLUMNS`` and ``SELECTION_VALUES`` aren't supported currently.
+        """
         if not isinstance(list, Database) and not isinstance(list, Query) and not isinstance(list, RelationalTable):
             raise Exception('Invalid list')
 
