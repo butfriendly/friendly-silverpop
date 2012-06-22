@@ -52,7 +52,7 @@ class Resource(object):
     @classmethod
     def from_element(cls, el, api):
         return to_python(
-            obj = cls(api),
+            obj = cls(),
             in_el = el,
             str_keys = cls._str_keys,
             int_keys = cls._int_keys,
@@ -60,10 +60,8 @@ class Resource(object):
             bool_keys = cls._bool_keys,
             dict_keys = cls._dict_keys,
             object_map = cls._object_map,
+            _api = api
         )
-
-    def __init__(self, api):
-        self._api = api
 
 class Session(object):
     def __init__(self, session_id):
