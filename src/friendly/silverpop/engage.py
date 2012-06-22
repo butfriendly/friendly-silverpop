@@ -80,11 +80,11 @@ class Contact(object):
     pass
 
 class List(Resource):
-    _str_keys = ['NAME', 'PARENT_NAME', 'USER_ID']
-    _int_keys = ['ID', 'TYPE', 'SIZE', 'NUM_OPT_OUTS', 'NUM_UNDELIVERABLE', 'VISIBILITY', 'PARENT_FOLDER_ID', 'SUPPRESSION_LIST_ID']
-    _date_keys = ['LAST_MODIFIED',]
-    _bool_keys = ['IS_FOLDER','FLAGGED_FOR_BACKUP']
-    _dict_keys = []
+    _str_keys = ('NAME', 'PARENT_NAME', 'USER_ID')
+    _int_keys = ('ID', 'TYPE', 'SIZE', 'NUM_OPT_OUTS', 'NUM_UNDELIVERABLE', 'VISIBILITY', 'PARENT_FOLDER_ID', 'SUPPRESSION_LIST_ID')
+    _date_keys = ('LAST_MODIFIED',)
+    _bool_keys = ('IS_FOLDER','FLAGGED_FOR_BACKUP')
+    _dict_keys = None
     _object_map = {}
 
     _contacts = {}
