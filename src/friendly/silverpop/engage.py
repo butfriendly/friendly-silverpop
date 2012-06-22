@@ -7,8 +7,6 @@ from xml.dom.minidom import Document
 from xml.etree.ElementTree import ElementTree, fromstring
 from helpers import to_python
 
-ENGAGE_URL = 'http://api5.silverpop.com/XMLAPI'
-
 LIST_VISIBILITY_PRIVATE = 0
 LIST_VISIBILITY_SHARED  = 1
 
@@ -182,15 +180,14 @@ LIST_TYPE_MAP = {
 }
 
 class EngageApi(object):
-    def __init__(self, username, password, **kwargs):
+    def __init__(self, username, password, url, **kwargs):
         super(EngageApi, self).__init__()
 
         self._username = username
         self._password = password
+        self._engage_url = url
 
         self._s = requests.session()
-
-        self._engage_url = ENGAGE_URL
 
         self._session = None
 
