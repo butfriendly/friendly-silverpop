@@ -4,8 +4,25 @@ import nose
 import re
 import datetime
 from nose.tools import assert_equal, assert_true, assert_false, assert_is_not_none
-from friendly.silverpop.engage import EngageApi, LIST_VISIBILITY_SHARED
+from friendly.silverpop.engage import EngageApi, Session, LIST_VISIBILITY_SHARED
 import settings
+
+class TestSession(object):
+    def test_login(self):
+        api = EngageApi(settings.ENGAGE_USERNAME, settings.ENGAGE_PASSWORD, settings.ENGAGE_URL)
+
+        assert_equal(api._session, None)
+
+        assert_true(api.login())
+
+        assert_true(isinstance(api._session, Session))
+
+        assert_true(hasattr(api._session, '_id'))
+
+        assert_true(api.logout())
+
+        assert_equal(api._session, None)
+
 
 class TestDatabase(object):
     def setUp(self):
