@@ -177,20 +177,18 @@ LIST_TYPE_MAP = {
     LIST_TYPE_CONTACT_LIST : ContactList,
 }
 
-class EngageApi(object):
-    def __init__(self, username, password, url, **kwargs):
-        super(EngageApi, self).__init__()
-
-        self._username = username
-        self._password = password
-        self._engage_url = url
-
-        self._s = requests.session()
+class EngageApiCore(object):
+    def __init__(self):
+        self._username   = None
+        self._password   = None
+        self._engage_url = None
 
         self._session = None
 
+        self._s = requests.session()
+
     def _generate_envelope(self, action=None):
-        """Generates common XML envelope for required for all requests"""
+        """Generates common XML envelope which is required for all requests"""
         doc = Document()
 
         # Create the <Envelope> base element
@@ -220,13 +218,62 @@ class EngageApi(object):
 
         return node
 
+    def _success(self, response):
+        """Determines success state of a response"""
+        tree = fromstring(response.text)
+        p = tree.find("Body/RESULT/SUCCESS")
+        success = p.text.upper() == 'TRUE'
+
+        error = None
+        if success == False:
+            # Extract error code and message
+            err_code = tree.find("Fault/Request/FaultCode")
+            err_msg  = tree.find("Fault/Request/FaultString")
+            error = (err_code, err_msg)
+
+        return (success, error)
+
     def _check_session(self):
         if not self._session:
-            self._login()
+            raise Exception('No Session')
+
+    def _request(self, doc, session_required=True):
+        """Wraps the whole request mechanism"""
+        if session_required:
+            self._check_session()
+
+        data = doc.toxml(encoding='utf-8')
+        headers = {
+            'Content-Type': 'text/xml;charset=UTF-8'
+            }
+        config = {
+#            'verbose': sys.stderr
+            }
+
+        url = self._engage_url
+        if session_required and self._session:
+            url = '%s;jsessionid=%s' % (url, str(self._session))
+
+        response = self._s.get(url, data=data, headers=headers, config=config)
+        response.raise_for_status()
+
+        return response
+
+class EngageApi(EngageApiCore):
+    def __init__(self, username, password, url, **kwargs):
+        super(EngageApi, self).__init__()
+
+        self._username = username
+        self._password = password
+        self._engage_url = url
+
+    def _check_session(self):
+        if not self._session:
+            self.login()
             if not self._session:
                 raise Exception('No Session')
 
-    def _login(self, username=None, password=None):
+    def login(self, username=None, password=None):
         if not username:
             username = self._username
 
@@ -248,42 +295,16 @@ class EngageApi(object):
 
         return success
 
-    def _success(self, response):
-        """Determines success state of a response"""
-        tree = fromstring(response.text)
-        p = tree.find("Body/RESULT/SUCCESS")
-        success = p.text.upper() == 'TRUE'
-        error = None
-        if success == False:
-            err_code = tree.find("Fault/Request/FaultCode")
-            err_msg = tree.find("Fault/Request/FaultString")
-            error = (err_code, err_msg)
-            print response, error, response.text
-        return (success, error)
-
-    def _request(self, doc, session_required=True):
-        if session_required:
-            self._check_session()
-
-        data = doc.toxml(encoding='utf-8')
-        headers = {
-            'Content-Type': 'text/xml;charset=UTF-8'
-            }
-        config = {
-#            'verbose': sys.stderr
-            }
-
-        url = self._engage_url
-        if session_required and self._session:
-            url = '%s;jsessionid=%s' % (url, str(self._session))
-
-        response = self._s.get(url, data=data, headers=headers, config=config)
-        response.raise_for_status()
-
-        return response
-
     def logout(self):
-        raise NotImplementedError()
+        body_node, doc = self._generate_envelope('Logout')
+
+        response = self._request(doc)
+
+        success, self.error = self._success(response)
+        if success:
+            self._session = None
+
+        return success
 
     def get_lists(self, visibility, list_type):
         body_node, doc = self._generate_envelope('GetLists')
