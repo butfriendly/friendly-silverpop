@@ -24,8 +24,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import re
 from datetime import datetime
-
 from dateutil.parser import parse as parse_datetime
 
 def to_python(obj,
@@ -137,3 +137,10 @@ def to_api(in_dict, int_keys=None, date_keys=None, bool_keys=None):
             del in_dict[k]
 
     return in_dict
+
+first_cap_re = re.compile('(.)([A-Z][a-z]+)')
+all_cap_re = re.compile('([a-z0-9])([A-Z])')
+def pep_up(name):
+    s1 = first_cap_re.sub(r'\1_\2', name)
+    s2 = all_cap_re.sub(r'\1_\2', s1).lower()
+    return re.sub(r'\s', '', s2)

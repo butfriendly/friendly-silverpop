@@ -4,25 +4,75 @@ import nose
 import re
 import datetime
 from nose.tools import assert_equal, assert_true, assert_false, assert_is_not_none
-from friendly.silverpop.engage import EngageApi, Session, LIST_VISIBILITY_SHARED
+from friendly.silverpop.engage import EngageApi, Session, LIST_VISIBILITY_SHARED, Table, Column, Contact
 import settings
 
-class TestSession(object):
-    def test_login(self):
-        api = EngageApi(settings.ENGAGE_USERNAME, settings.ENGAGE_PASSWORD, settings.ENGAGE_URL)
+def test_table_definition():
+    table = Table()
 
-        assert_equal(api._session, None)
+    table.add_column(Column('email', 1, None, is_key=True))
+    assert_true(table.has_column('email'))
+    assert_true('email' in table.key_columns)
 
-        assert_true(api.login())
+    table.add_column(Column('firstname', 1))
+    assert_true(table.has_column('firstname'))
+    assert_false('firstname' in table.key_columns)
 
-        assert_true(isinstance(api._session, Session))
+    table.add_column(Column('lastname', 1))
+    assert_true(table.has_column('lastname'))
+    assert_false('lastname' in table.key_columns)
 
-        assert_true(hasattr(api._session, '_id'))
+def test_access_to_invalid_attribute_on_contact():
+    table = Table()
 
-        assert_true(api.logout())
+    contact = Contact(from_table=table)
+    err = False
+    try:
+        contact.name = 'John Doe'
+    except ValueError, e:
+        err = True
+    assert_true(err)
 
-        assert_equal(api._session, None)
+def test_create_table():
+    table = Table()
+    table.add_column(Column('email', 1, None, is_key=True))
+    table.add_column(Column('firstname', 1))
+    table.add_column(Column('lastname', 1))
 
+    contact = Contact(from_table=table)
+    contact.email = 'john@example.com'
+    contact.firstname = 'John'
+    contact.lastname = 'Doe'
+
+def test_login_and_logout():
+    api = EngageApi(settings.ENGAGE_USERNAME, settings.ENGAGE_PASSWORD, settings.ENGAGE_URL)
+
+    assert_equal(api._session, None)
+
+    assert_true(api.login())
+
+    assert_true(isinstance(api._session, Session))
+
+    assert_true(hasattr(api._session, '_id'))
+
+    assert_true(api.logout())
+
+    assert_equal(api._session, None)
+
+def test_create_contact():
+    api = EngageApi(settings.ENGAGE_USERNAME, settings.ENGAGE_PASSWORD, settings.ENGAGE_URL)
+
+    databases = api.get_databases(LIST_VISIBILITY_SHARED)
+
+    db = [db for db in databases if db.id == settings.ENGAGE_DATABASE_ID][0]
+
+#    print db, db.get_meta_data(), db._table
+#    contact = db.create_contact()
+#    print ','.join(contact._table.column_names)
+#    contact.email
+#    contact.recipient_id
+#    contact.list_id
+#    contact.mailing_id
 
 class TestDatabase(object):
     def setUp(self):
@@ -97,7 +147,7 @@ class TestEngage(object):
         self._api = EngageApi(settings.ENGAGE_USERNAME, settings.ENGAGE_PASSWORD, settings.ENGAGE_URL)
 
     def tearDown(self):
-        pass
+        del self._api
 
     def test_databases(self):
         dp = re.compile(r'^\<Database \'\d+\'\ \'[^\']+\'\>$')
@@ -108,7 +158,7 @@ class TestEngage(object):
 
             assert(database.get_meta_data())
 
-            for column in database._columns:
+            for column in database._table._columns:
                 assert_is_not_none(cp.match(repr(column)))
 #            print database
 
