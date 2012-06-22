@@ -343,6 +343,7 @@ class EngageApi(object):
         print success, self.error
 
     def get_list_meta_data(self, list):
+        """Fetches meta-data and updates list"""
         if not isinstance(list, Database) and not isinstance(list, Query) and not isinstance(list, RelationalTable):
             raise Exception('Invalid list')
 
@@ -356,13 +357,31 @@ class EngageApi(object):
 
         if success:
             tree = fromstring(response.text)
-            for item in tree.findall("Body/RESULT/COLUMNS/COLUMN"):
+            result_node = tree.find('Body/RESULT')
+            
+            # @todo Add support for key columns
+#            key_columns = []
+#            for item in result_node.findall('KEY_COLUMNS/COLUMN'):
+#                print item.text
+
+            columns = []
+            for item in result_node.findall('COLUMNS/COLUMN'):
                 column_name   = item.find('NAME').text
                 column_type   = getattr(item.find('TYPE'), 'text', None)
                 default_value = getattr(item.find('TYPE'), 'text', None)
 
-                column = Column(column_name, column_type, default_value)
-                list._columns.append(column)
+                # @todo Add support for selection values
+#                for selection_value in item.find('SELECTION_VALUES/VALUE'):
+#                    pass
+
+                columns.append(Column(column_name, column_type, default_value))
+
+            to_python(list, 
+                in_el=result_node,
+                str_keys=('ORGANIZATION_ID', 'SMS_KEYWORD'),
+                date_keys=('LAST_CONFIGURED','CREATED'),
+                bool_keys=('OPT_IN_FORM_DEFINED', 'OPT_OUT_FORM_DEFINED', 'PROFILE_FORM_DEFINED', 'OPT_IN_AUTOREPLY_DEFINED', 'PROFILE_AUTOREPLY_DEFINED'),
+                _columns = columns)
 
         return success
 
