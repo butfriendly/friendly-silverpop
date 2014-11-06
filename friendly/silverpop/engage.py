@@ -8,60 +8,61 @@ from xml.etree.ElementTree import ElementTree, fromstring
 from helpers import to_python, pep_up
 
 LIST_VISIBILITY_PRIVATE = 0
-LIST_VISIBILITY_SHARED  = 1
+LIST_VISIBILITY_SHARED = 1
 
-LIST_TYPE_DATABASE         = 0
-LIST_TYPE_QUERY            = 1
+LIST_TYPE_DATABASE = 0
+LIST_TYPE_QUERY = 1
 LIST_TYPE_DATABASE_CONTACT_QUERY = 2
-LIST_TYPE_TEST_LIST        = 5
-LIST_TYPE_SEED_LIST        = 6
+LIST_TYPE_TEST_LIST = 5
+LIST_TYPE_SEED_LIST = 6
 LIST_TYPE_SUPPRESSION_LIST = 13
 LIST_TYPE_RELATIONAL_TABLE = 15
-LIST_TYPE_CONTACT_LIST     = 18
+LIST_TYPE_CONTACT_LIST = 18
 
-COLUMN_TYPE_TEXT       = 0
-COLUMN_TYPE_YESNO      = 1
-COLUMN_TYPE_NUMERIC    = 2
-COLUMN_TYPE_DATE       = 3
-COLUMN_TYPE_TIME       = 4
-COLUMN_TYPE_COUNTRY    = 5
-COLUMN_TYPE_SELECTION  = 6
+COLUMN_TYPE_TEXT = 0
+COLUMN_TYPE_YESNO = 1
+COLUMN_TYPE_NUMERIC = 2
+COLUMN_TYPE_DATE = 3
+COLUMN_TYPE_TIME = 4
+COLUMN_TYPE_COUNTRY = 5
+COLUMN_TYPE_SELECTION = 6
 COLUMN_TYPE_SEGMENTING = 8
-COLUMN_TYPE_SYSTEM     = 9
+COLUMN_TYPE_SYSTEM = 9
 COLUMN_TYPE_SMS_OPT_OUT_DATE = 14
 COLUMN_TYPE_SMS_PHONE_NUMBER = 15
 COLUMN_TYPE_PHONE_NUMBER = 16
-COLUMN_TYPE_TIMESTAMP    = 17
+COLUMN_TYPE_TIMESTAMP = 17
 COLUMN_TYPE_MULTI_SELECT = 20
 
-CONTACT_CREATED_FROM_DATABASE    = 0
-CONTACT_CREATED_MANUALLY         = 1
-CONTACT_CREATED_OPTED_IN         = 2
+CONTACT_CREATED_FROM_DATABASE = 0
+CONTACT_CREATED_MANUALLY = 1
+CONTACT_CREATED_OPTED_IN = 2
 CONTACT_CREATED_FROM_TRACKING_DB = 3
 
-class Resource(object):
 
+class Resource(object):
     _string_keys = []
     _int_keys = []
     _date_keys = []
     _bool_keys = []
     _dict_keys = []
     _object_map = {}
-#    _pks = []
+    # _pks = []
 
     @classmethod
     def from_element(cls, el, api):
         return to_python(
-            obj = cls(),
-            in_el = el,
-            str_keys = cls._str_keys,
-            int_keys = cls._int_keys,
-            date_keys = cls._date_keys,
-            bool_keys = cls._bool_keys,
-            dict_keys = cls._dict_keys,
-            object_map = cls._object_map,
-            _api = api
+            obj=cls(),
+            in_el=el,
+            str_keys=cls._str_keys,
+            int_keys=cls._int_keys,
+            date_keys=cls._date_keys,
+            bool_keys=cls._bool_keys,
+            dict_keys=cls._dict_keys,
+            object_map=cls._object_map,
+            _api=api
         )
+
 
 class Session(object):
     def __init__(self, session_id):
@@ -73,8 +74,10 @@ class Session(object):
     def close(self):
         pass
 
+
 class Mailing(object):
     pass
+
 
 class Contact(object):
     def __init__(self, **kwargs):
@@ -87,21 +90,24 @@ class Contact(object):
 
     def __setattr__(self, name, value):
         if not self._table.has_column(name):
-            raise ValueError('Contact has no field "{0}". Available fields: {1}'.format(name, ', '.join(self._table.column_names)))
+            raise ValueError(
+                'Contact has no field "{0}". Available fields: {1}'.format(name, ', '.join(self._table.column_names)))
 
         # @todo Validate type
         self.__dict__[name] = value
 
+
 class List(Resource):
     _str_keys = ('NAME', 'PARENT_NAME', 'USER_ID')
-    _int_keys = ('ID', 'TYPE', 'SIZE', 'NUM_OPT_OUTS', 'NUM_UNDELIVERABLE', 'VISIBILITY', 'PARENT_FOLDER_ID', 'SUPPRESSION_LIST_ID')
+    _int_keys = ('ID', 'TYPE', 'SIZE', 'NUM_OPT_OUTS', 'NUM_UNDELIVERABLE', 'VISIBILITY',
+                 'PARENT_FOLDER_ID', 'SUPPRESSION_LIST_ID')
     _date_keys = ('LAST_MODIFIED',)
-    _bool_keys = ('IS_FOLDER','FLAGGED_FOR_BACKUP')
+    _bool_keys = ('IS_FOLDER', 'FLAGGED_FOR_BACKUP')
     _dict_keys = None
     _object_map = {}
 
-#    def __init__(self):
-#        self._contacts = {}
+    # def __init__(self):
+    #        self._contacts = {}
 
     @classmethod
     def from_element(cls, el, api):
@@ -119,7 +125,9 @@ class List(Resource):
             raise ValueError('Invalid contact')
 
         self._api.add_recipient()
-#        if not contact.id in self._contacts:
+
+
+# if not contact.id in self._contacts:
 #            self._contacts[contact.id] = contact
 
 #Column = collections.namedtuple('Column', ["title", "url", "dateadded", "format", "owner", "sizes", "votes"])
@@ -127,12 +135,13 @@ class MetaDataMixin(object):
     def get_meta_data(self):
         return self._api.get_list_meta_data(self)
 
+
 class Column(object):
     def __init__(self, column_name, column_type=None, default_value=None, **kwargs):
-        self._mapping = {} # Map for remembering old and ugly column names
+        self._mapping = {}  # Map for remembering old and ugly column names
 
-        self.id = pep_up(column_name) # Clean up the name
-        self._mapping[self.id] = column_name # Remember the name
+        self.id = pep_up(column_name)  # Clean up the name
+        self._mapping[self.id] = column_name  # Remember the name
 
         self.name = column_name
         self.type = column_type
@@ -146,6 +155,7 @@ class Column(object):
     def __repr__(self):
         return "<Column '{0}' '{1}'>".format(self._name, self._type)
 
+
 class Table(object):
     def __init__(self):
         self._columns = {}
@@ -153,11 +163,11 @@ class Table(object):
     @property
     def key_columns(self):
         """Returns a list of key columns of the table"""
-        return [ str(column) for id, column in self._columns.iteritems() if column.is_key ]
+        return [str(column) for id, column in self._columns.iteritems() if column.is_key]
 
     @property
     def column_names(self):
-        return [ str(column) for id, column in self._columns.iteritems() ]
+        return [str(column) for id, column in self._columns.iteritems()]
 
     def has_column(self, column_name):
         """Checks wether the table contains the given column
@@ -187,7 +197,7 @@ class Table(object):
             raise Exception('No id at column')
 
         # We return silently if the column already exists
-        if str(column) in self._columns and replace == False:
+        if str(column) in self._columns and replace is False:
             # raise Exception('Column "{0}" already exists'.format(str(column)))
             return
 
@@ -205,6 +215,7 @@ class Table(object):
 
         if column_name in self._columns:
             del self._columns[column_name]
+
 
 class Database(List, MetaDataMixin):
     def __repr__(self):
@@ -227,28 +238,33 @@ class Database(List, MetaDataMixin):
     def add_contact(self, contact):
         raise NotImplementedError()
 
+
 class Query(List, MetaDataMixin):
     def __repr__(self):
         return "<Query '{0}' '{1}'>".format(self.id, self.name)
+
 
 class TestList(List):
     def __repr__(self):
         return "<TestList '{0}' '{1}'>".format(self.id, self.name)
 
+
 class SeedList(List):
     def __repr__(self):
         return "<SeedList '{0}' '{1}'>".format(self.id, self.name)
+
 
 class SuppressionList(List):
     def __repr__(self):
         return "<SuppressionList '{0}' '{1}'>".format(self.id, self.name)
 
+
 class RelationalTable(List, MetaDataMixin):
     def __repr__(self):
         return "<RelationalTable '{0}' '{1}'>".format(self.id, self.name)
 
-#    def import(self):
-#        raise NotImplementedError()
+    #    def import(self):
+    #        raise NotImplementedError()
 
     def export(self):
         raise NotImplementedError()
@@ -259,24 +275,27 @@ class RelationalTable(List, MetaDataMixin):
     def delete(self):
         raise NotImplementedError()
 
+
 class ContactList(List):
     def __repr__(self):
         return "<ContactList '{0}' '{1}'>".format(self.id, self.name)
 
+
 LIST_TYPE_MAP = {
-    LIST_TYPE_DATABASE : Database,
-    LIST_TYPE_QUERY : Query,
-    LIST_TYPE_TEST_LIST : TestList,
-    LIST_TYPE_SEED_LIST : SeedList,
-    LIST_TYPE_SUPPRESSION_LIST : SuppressionList,
-    LIST_TYPE_RELATIONAL_TABLE : RelationalTable,
-    LIST_TYPE_CONTACT_LIST : ContactList,
+    LIST_TYPE_DATABASE: Database,
+    LIST_TYPE_QUERY: Query,
+    LIST_TYPE_TEST_LIST: TestList,
+    LIST_TYPE_SEED_LIST: SeedList,
+    LIST_TYPE_SUPPRESSION_LIST: SuppressionList,
+    LIST_TYPE_RELATIONAL_TABLE: RelationalTable,
+    LIST_TYPE_CONTACT_LIST: ContactList,
 }
+
 
 class EngageApiCore(object):
     def __init__(self):
-        self._username   = None
-        self._password   = None
+        self._username = None
+        self._password = None
         self._engage_url = None
 
         self._session = None
@@ -324,7 +343,7 @@ class EngageApiCore(object):
         if success == False:
             # Extract error code and message
             err_code = tree.find("Fault/Request/FaultCode")
-            err_msg  = tree.find("Fault/Request/FaultString")
+            err_msg = tree.find("Fault/Request/FaultString")
             error = (err_code, err_msg)
 
         return (success, error)
@@ -341,10 +360,10 @@ class EngageApiCore(object):
         data = doc.toxml(encoding='utf-8')
         headers = {
             'Content-Type': 'text/xml;charset=UTF-8'
-            }
+        }
         config = {
-#            'verbose': sys.stderr
-            }
+            #            'verbose': sys.stderr
+        }
 
         url = self._engage_url
         if session_required and self._session:
@@ -354,6 +373,7 @@ class EngageApiCore(object):
         response.raise_for_status()
 
         return response
+
 
 class EngageApi(EngageApiCore):
     def __init__(self, username, password, url, **kwargs):
@@ -504,13 +524,13 @@ class EngageApi(EngageApiCore):
         if success:
             tree = fromstring(response.text)
             result_node = tree.find('Body/RESULT')
-            
+
             table = Table()
 
             for item in result_node.findall('KEY_COLUMNS/COLUMN'):
                 # @todo: DRY
-                column_name   = item.find('NAME').text
-                column_type   = getattr(item.find('TYPE'), 'text', None)
+                column_name = item.find('NAME').text
+                column_type = getattr(item.find('TYPE'), 'text', None)
                 default_value = getattr(item.find('DEFAULT_VALUE'), 'text', None)
 
                 table.add_column(Column(column_name, column_type, default_value, is_key=True))
@@ -519,22 +539,24 @@ class EngageApi(EngageApiCore):
             # NOTE: ``COLUMNS`` contains also ``KEY_COLUMNS``
             for item in result_node.findall('COLUMNS/COLUMN'):
                 # @todo: DRY
-                column_name   = item.find('NAME').text
-                column_type   = getattr(item.find('TYPE'), 'text', None)
+                column_name = item.find('NAME').text
+                column_type = getattr(item.find('TYPE'), 'text', None)
                 default_value = getattr(item.find('DEFAULT_VALUE'), 'text', None)
 
                 # @todo Add support for selection values
-#                for selection_value in item.find('SELECTION_VALUES/VALUE'):
-#                    pass
+                #                for selection_value in item.find('SELECTION_VALUES/VALUE'):
+                #                    pass
 
                 table.add_column(Column(column_name, column_type, default_value))
 
-            to_python(list, 
-                in_el=result_node,
-                str_keys=('ORGANIZATION_ID', 'SMS_KEYWORD'),
-                date_keys=('LAST_CONFIGURED','CREATED'),
-                bool_keys=('OPT_IN_FORM_DEFINED', 'OPT_OUT_FORM_DEFINED', 'PROFILE_FORM_DEFINED', 'OPT_IN_AUTOREPLY_DEFINED', 'PROFILE_AUTOREPLY_DEFINED'),
-                _table = table)
+            to_python(list,
+                      in_el=result_node,
+                      str_keys=('ORGANIZATION_ID', 'SMS_KEYWORD'),
+                      date_keys=('LAST_CONFIGURED', 'CREATED'),
+                      bool_keys=(
+                      'OPT_IN_FORM_DEFINED', 'OPT_OUT_FORM_DEFINED', 'PROFILE_FORM_DEFINED', 'OPT_IN_AUTOREPLY_DEFINED',
+                      'PROFILE_AUTOREPLY_DEFINED'),
+                      _table=table)
 
         return success
 
@@ -559,7 +581,7 @@ class EngageApi(EngageApiCore):
                 self._append_text_node_to('NAME', key, column_node)
                 self._append_text_node_to('VALUE', columns[key], column_node)
         else:
-            pass 
+            pass
 
         response = self._request(doc)
 
@@ -621,7 +643,7 @@ class EngageApi(EngageApiCore):
 
     def set_column_value(self, list_id, column_name, column_value):
         raise NotImplementedError()
-    
+
     def purge_data(self, target_id, source_id):
         raise NotImplementedError()
 
@@ -637,7 +659,7 @@ class EngageApi(EngageApiCore):
         if 'send_autoreply' in kwargs:
             raise NotImplementedError()
 
-        if 'update_if_found' in kwargs and kwargs.get('update_if_found') == True:
+        if 'update_if_found' in kwargs and kwargs.get('update_if_found') is True:
             self._append_text_node_to('UPDATE_IF_FOUND', 'true', body_node)
 
         if 'allow_html' in kwargs:

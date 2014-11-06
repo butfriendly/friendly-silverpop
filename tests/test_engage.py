@@ -7,6 +7,7 @@ from nose.tools import assert_equal, assert_true, assert_false, assert_is_not_no
 from friendly.silverpop.engage import EngageApi, Session, LIST_VISIBILITY_SHARED, Table, Column, Contact
 import settings
 
+
 def test_table_definition():
     table = Table()
 
@@ -22,6 +23,7 @@ def test_table_definition():
     assert_true(table.has_column('lastname'))
     assert_false('lastname' in table.key_columns)
 
+
 def test_access_to_invalid_attribute_on_contact():
     table = Table()
 
@@ -33,6 +35,7 @@ def test_access_to_invalid_attribute_on_contact():
         err = True
     assert_true(err)
 
+
 def test_create_table():
     table = Table()
     table.add_column(Column('email', 1, None, is_key=True))
@@ -43,6 +46,7 @@ def test_create_table():
     contact.email = 'john@example.com'
     contact.firstname = 'John'
     contact.lastname = 'Doe'
+
 
 def test_login_and_logout():
     api = EngageApi(settings.ENGAGE_USERNAME, settings.ENGAGE_PASSWORD, settings.ENGAGE_URL)
@@ -59,6 +63,7 @@ def test_login_and_logout():
 
     assert_equal(api._session, None)
 
+
 def test_create_contact():
     api = EngageApi(settings.ENGAGE_USERNAME, settings.ENGAGE_PASSWORD, settings.ENGAGE_URL)
 
@@ -66,7 +71,8 @@ def test_create_contact():
 
     db = [db for db in databases if db.id == settings.ENGAGE_DATABASE_ID][0]
 
-#    print db, db.get_meta_data(), db._table
+
+# print db, db.get_meta_data(), db._table
 #    contact = db.create_contact()
 #    print ','.join(contact._table.column_names)
 #    contact.email
@@ -94,7 +100,8 @@ class TestDatabase(object):
             if v is not None:
                 assert_true(isinstance(v, basestring))
 
-        int_keys = ('id', 'type', 'size', 'num_opt_outs', 'num_undeliverable', 'visibility', 'parent_folder_id', 'suppression_list_id')
+        int_keys = ('id', 'type', 'size', 'num_opt_outs', 'num_undeliverable', 'visibility', 'parent_folder_id',
+                    'suppression_list_id')
         for k in int_keys:
             assert_true(hasattr(db, k))
             v = getattr(db, k)
@@ -142,6 +149,7 @@ class TestDatabase(object):
         assert_equal(db.opt_in_autoreply_defined, True)
         assert_equal(db.profile_autoreply_defined, True)
 
+
 class TestEngage(object):
     def setUp(self):
         self._api = EngageApi(settings.ENGAGE_USERNAME, settings.ENGAGE_PASSWORD, settings.ENGAGE_URL)
@@ -156,11 +164,11 @@ class TestEngage(object):
             print database
             assert_is_not_none(dp.match(repr(database)))
 
-            assert(database.get_meta_data())
+            assert (database.get_meta_data())
 
             for column in database._table._columns:
                 assert_is_not_none(cp.match(repr(column)))
-#            print database
+            #            print database
 
     def test_queries(self):
         for query in self._api.get_queries(LIST_VISIBILITY_SHARED):
@@ -171,25 +179,25 @@ class TestEngage(object):
         p = re.compile(r'^\<ContactList \'\d+\'\ \'[^\']+\'\>$')
         for contact_list in self._api.get_contact_lists(LIST_VISIBILITY_SHARED):
             assert_is_not_none(p.match(repr(contact_list)))
-#            print contact_list
+        #            print contact_list
 
     def test_test_lists(self):
         p = re.compile(r'^\<TestList \'\d+\'\ \'[^\']+\'\>$')
         for test_list in self._api.get_test_lists(LIST_VISIBILITY_SHARED):
             assert_is_not_none(p.match(repr(test_list)))
-#            print test_list
+        #            print test_list
 
     def test_suppression_lists(self):
         p = re.compile(r'^\<SuppressionList \'\d+\'\ \'[^\']+\'\>$')
         for suppression_list in self._api.get_suppression_lists(LIST_VISIBILITY_SHARED):
             assert_is_not_none(p.match(repr(suppression_list)))
-#            print suppression_list
+        #            print suppression_list
 
     def test_tables(self):
         cp = re.compile(r'^\<Column \'[^\']+\'\ \'[^\']+\'\>$')
         for table in self._api.get_relational_tables(LIST_VISIBILITY_SHARED):
-            assert(table.get_meta_data())
-#            print table
+            assert (table.get_meta_data())
+            #            print table
 
             for column in table._columns:
                 assert_is_not_none(cp.match(repr(column)))
