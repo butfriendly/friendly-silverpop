@@ -298,6 +298,20 @@ LIST_TYPE_MAP = {
 }
 
 
+class Error(Exception):
+    """Base class for exceptions in this module."""
+    def __init__(self, msg, code=None):
+        self.msg = msg
+        self.code = code
+
+    def __str__(self):
+        return repr(self.code)
+
+
+class EngageError(Error):
+    pass
+
+
 class EngageApiCore(object):
     def __init__(self):
         self._username = None
