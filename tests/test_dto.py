@@ -1,5 +1,6 @@
 import pytest
-from friendly.silverpop.engage import Table, Column, COLUMN_TYPE_TEXT, COLUMN_TYPE_YESNO, Contact
+from friendly.silverpop.engage.resources import Table, Column, Contact
+from friendly.silverpop.engage.constants import COLUMN_TYPE_TEXT, COLUMN_TYPE_YESNO
 
 
 def test_table_definition():

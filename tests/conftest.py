@@ -1,6 +1,7 @@
 import pytest
-from friendly.silverpop.engage import EngageApi, LIST_VISIBILITY_SHARED, LIST_VISIBILITY_PRIVATE
+from friendly.silverpop.engage.constants import LIST_VISIBILITY_SHARED
 import settings
+from friendly.silverpop.engage.api import EngageApi
 
 
 @pytest.fixture(scope='session')

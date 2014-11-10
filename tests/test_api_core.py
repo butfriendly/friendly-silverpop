@@ -1,8 +1,10 @@
 import re
 import pytest
+from friendly.silverpop.engage.constants import LIST_VISIBILITY_SHARED, EXPORT_TYPE_ALL, EXPORT_FORMAT_CSV
+from friendly.silverpop.engage.resources import Session, Contact
+from friendly.silverpop.engage.api import CONTACT_CREATED_MANUALLY
+from friendly.silverpop.engage.exceptions import RecipientAlreadyExistsError, EngageError
 import settings
-from friendly.silverpop.engage import LIST_VISIBILITY_SHARED, Session, EngageError, Contact, Database, \
-    CONTACT_CREATED_MANUALLY, RecipientAlreadyExistsError
 
 
 def test_engage_login_and_logout(engage_api):
@@ -55,6 +57,24 @@ def test_get_relational_tables(engage_api):
             assert cp.match(repr(column)) is not None
 
 
+def test_export_list(engage_api):
+    EMAIL = 'test@example.com'
+
+    # Add recipient
+    try:
+        success = engage_api.add_recipient(settings.ENGAGE_DATABASE_ID, CONTACT_CREATED_MANUALLY, dict(email=EMAIL))
+        assert success is True
+    except RecipientAlreadyExistsError:
+        pass
+
+    (success, job_id, file_path) = engage_api.export_list(settings.ENGAGE_DATABASE_ID, EXPORT_TYPE_ALL, EXPORT_FORMAT_CSV)
+    assert success is True
+
+    # Remove recipient
+    success = engage_api.remove_recipient(settings.ENGAGE_DATABASE_ID, EMAIL)
+    assert success is True
+
+
 def test_add_recipient(engage_api):
     EMAIL = 'test@example.com'
 
@@ -88,7 +108,8 @@ def test_add_recipient_unknown_column(engage_api):
         'email': 'test@example.com',
         'unknonw_column': 'nok',
     }
-    success = engage_api.add_recipient(settings.ENGAGE_DATABASE_ID, CONTACT_CREATED_MANUALLY, contact, update_if_found=True)
+    success = engage_api.add_recipient(settings.ENGAGE_DATABASE_ID, CONTACT_CREATED_MANUALLY,
+                                       contact, update_if_found=True)
     assert success is True
 
 
@@ -139,3 +160,38 @@ def test_update_recipient_data(engage_api):
     # Remove recipient
     success = engage_api.remove_recipient(settings.ENGAGE_DATABASE_ID, NEW_EMAIL)
     assert success is True
+
+
+def test_update_recipient_with_recipient_id(engage_api):
+    with pytest.raises(NotImplementedError) as e:
+        engage_api.update_recipient(settings.ENGAGE_DATABASE_ID, dict(email='test@example.com'), recipient_id=1)
+
+
+def test_update_recipient_with_encoded_recipient_id(engage_api):
+    with pytest.raises(NotImplementedError) as e:
+        engage_api.update_recipient(settings.ENGAGE_DATABASE_ID, dict(email='test@example.com'), encoded_recipient_id=1)
+
+
+def test_update_recipient_with_send_autoreply(engage_api):
+    with pytest.raises(NotImplementedError) as e:
+        engage_api.update_recipient(settings.ENGAGE_DATABASE_ID, dict(email='test@example.com'), send_autoreply=1)
+
+
+def test_update_recipient_with_allow_html(engage_api):
+    with pytest.raises(NotImplementedError) as e:
+        engage_api.update_recipient(settings.ENGAGE_DATABASE_ID, dict(email='test@example.com'), allow_html=1)
+
+
+def test_update_recipient_with_visitor_key(engage_api):
+    with pytest.raises(NotImplementedError) as e:
+        engage_api.update_recipient(settings.ENGAGE_DATABASE_ID, dict(email='test@example.com'), visitor_key=1)
+
+
+def test_update_recipient_with_sync_fields(engage_api):
+    with pytest.raises(NotImplementedError) as e:
+        engage_api.update_recipient(settings.ENGAGE_DATABASE_ID, dict(email='test@example.com'), sync_fields=1)
+
+
+def test_update_recipient_with_snooze_settings(engage_api):
+    with pytest.raises(NotImplementedError) as e:
+        engage_api.update_recipient(settings.ENGAGE_DATABASE_ID, dict(email='test@example.com'), snooze_settings=1)

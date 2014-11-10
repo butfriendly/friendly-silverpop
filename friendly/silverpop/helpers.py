@@ -29,14 +29,8 @@ from datetime import datetime
 from dateutil.parser import parse as parse_datetime
 
 
-def to_python(obj,
-    str_keys=None,
-    date_keys=None,
-    int_keys=None,
-    object_map=None,
-    bool_keys=None,
-    dict_keys=None,
-    **kwargs):
+def to_python(obj, str_keys=None, date_keys=None, int_keys=None, object_map=None,
+              bool_keys=None, dict_keys=None, **kwargs):
     """Extends a given object for API Consumption.
 
     :param obj: Object to extend.
