@@ -46,6 +46,16 @@ CONTACT_CREATED_CHOICES = (
     CONTACT_CREATED_FROM_TRACKING_DB,
 )
 
+ERR_RECIPIENT_ALREADY_EXISTS = 122
+ERR_RECIPIENT_IS_NOT_A_MEMBER = 128
+ERR_SESSION_EXPIRED_OR_INVALID = 145
+
+#ENGAGE_ERRORS = (
+#    (ERR_RECIPIENT_IS_NOT_A_MEMBER, EngageError),
+#    (ERR_SESSION_EXPIRED_OR_INVALID, EngageError),
+#)
+
+
 class Resource(object):
     _str_keys = []
     _int_keys = []
@@ -66,7 +76,7 @@ class Resource(object):
             bool_keys=cls._bool_keys,
             dict_keys=cls._dict_keys,
             object_map=cls._object_map,
-            _api=api
+            api=api
         )
 
 
@@ -85,22 +95,30 @@ class Mailing(object):
     pass
 
 
-class Contact(object):
+class Contact(Resource):
+    _str_keys = ('EMAIL', 'ORGANIZATION_ID')
+    _int_keys = ('RecipientId', 'EmailType', 'CreatedFrom')
+    _date_keys = ('LastModified', )
+    _bool_keys = []
+    _dict_keys = None
+    _object_map = {}
+
     def __init__(self, **kwargs):
         table = kwargs.get('from_table')
 
-        if table is None:
-            table = Table()
+#        if table is None:
+#            table = Table()
 
         self.__dict__['_table'] = table
 
     def __setattr__(self, name, value):
-        if not self._table.has_column(name):
+        if self._table and not self._table.has_column(name):
             raise ValueError(
                 'Contact has no field "{0}". Available fields: {1}'.format(name, ', '.join(self._table.column_names)))
 
         # @todo Validate type
-        self.__dict__[name] = value
+
+        super(Contact, self).__setattr__(name, value)
 
 
 class List(Resource):
@@ -126,11 +144,17 @@ class List(Resource):
 
         return super(cls, list_class).from_element(el, api)
 
-    def add_contact(self, contact):
+    def add_contact(self, contact, created_from=CONTACT_CREATED_MANUALLY):
         if not isinstance(contact, Contact):
             raise ValueError('Invalid contact')
 
-        self._api.add_recipient()
+        return self.api.add_recipient(self.id, created_from, contact)
+
+    def get_recipient_data(self, contact):
+        if not isinstance(contact, Contact):
+            raise ValueError('Invalid contact')
+
+        return self.api.select_recipient_data(self.id, contact.email)
 
 
 # if not contact.id in self._contacts:
@@ -139,7 +163,7 @@ class List(Resource):
 #Column = collections.namedtuple('Column', ["title", "url", "dateadded", "format", "owner", "sizes", "votes"])
 class MetaDataMixin(object):
     def get_meta_data(self):
-        return self._api.get_list_meta_data(self)
+        return self.api.get_list_meta_data(self)
 
 
 class Column(object):
@@ -159,7 +183,7 @@ class Column(object):
         return self.id
 
     def __repr__(self):
-        return "<Column '{0}' '{1}'>".format(self._name, self._type)
+        return "<Column name={0} type={1}>".format(self.name, self.type)
 
 
 class Table(object):
@@ -219,8 +243,13 @@ class Table(object):
         else:
             raise ValueError('Invalid column type')
 
-        if column_name in self._columns:
-            del self._columns[column_name]
+        if not column_name in self.column_names:
+            raise Exception('No column %s' % column_name)
+
+        if self._columns[column_name].is_key:
+            raise Exception('Cannot delete key columns')
+
+        del self._columns[column_name]
 
 
 class Database(List, MetaDataMixin):
@@ -240,9 +269,6 @@ class Database(List, MetaDataMixin):
             self.get_meta_data()
 
         return Contact(from_table=self._table)
-
-    def add_contact(self, contact):
-        raise NotImplementedError()
 
 
 class Query(List, MetaDataMixin):
@@ -305,10 +331,18 @@ class Error(Exception):
         self.code = code
 
     def __str__(self):
-        return repr(self.code)
+        return '%s (%r)' % (self.msg, self.code)
 
 
 class EngageError(Error):
+    pass
+
+
+class SessionIsExpiredOrInvalidError(EngageError):
+    pass
+
+
+class RecipientAlreadyExistsError(EngageError):
     pass
 
 
@@ -322,7 +356,11 @@ class EngageApiCore(object):
 
         self._requests = requests.session()  # Requests session
 
-    def _generate_envelope(self, action=None):
+    @property
+    def session(self):
+        return self._session
+
+    def generate_envelope(self, action=None):
         """Generates common XML envelope which is required for all requests"""
         doc = Document()
 
@@ -342,7 +380,7 @@ class EngageApiCore(object):
 
         return (body_node, doc)
 
-    def _append_text_node_to(self, tag, text, target):
+    def append_text_node_to(self, tag, text, target):
         """Creates a text node and appends it to the target"""
         doc = target.ownerDocument
 
@@ -353,58 +391,91 @@ class EngageApiCore(object):
 
         return node
 
-    def _success(self, response):
+    def append_columns_to(self, columns, target):
+        return self._append_namevalue_nodes_to(columns, target)
+
+    def append_sync_fields_to(self, fields, target):
+        return self._append_namevalue_nodes_to(
+            fields, target, container_node_name='SYNC_FIELDS',
+            item_node_name='SYNC_FIELD')
+
+    def _append_namevalue_nodes_to(self, nv, target, **kwargs):
+        assert isinstance(nv, dict)
+        container_node_name = kwargs.get('container_node_name')
+        item_node_name = kwargs.get('item_node_name', 'COLUMN')
+
+        doc = target.ownerDocument
+
+        container_node = None
+        if container_node_name:
+            container_node = doc.createElement(container_node_name)
+
+        for name in nv.keys():
+            item_node = doc.createElement(item_node_name)
+            self.append_text_node_to('NAME', name, item_node)
+            self.append_text_node_to('VALUE', nv[name], item_node)
+            if container_node:
+                container_node.appendChild(item_node)
+            else:
+                target.appendChild(item_node)
+
+        if container_node:
+            target.appendChild(container_node)
+
+    def has_errors(self, response, raise_on_error=True):
         """Determines success state of a response"""
         tree = fromstring(response.text)
-        p = tree.find("Body/RESULT/SUCCESS")
-        success = p.text.upper() == 'TRUE'
+        success = tree.find('Body/RESULT/SUCCESS').text
+        was_successful = success.upper() == 'TRUE'
 
         error = None
-        if success == False:
+        if not was_successful:
             # Extract error code and message
-            err_code = tree.find("Fault/Request/FaultCode")
-            err_msg = tree.find("Fault/Request/FaultString")
+            err_code = tree.find('Body/Fault/FaultCode').text
+            err_msg = tree.find('Body/Fault/FaultString').text
+            err_id = int(tree.find('Body/Fault/detail/error/errorid').text)
+            if raise_on_error:
+                # @todo Improve exceptions
+                if err_id == ERR_RECIPIENT_ALREADY_EXISTS:
+                    raise RecipientAlreadyExistsError(err_msg, err_code)
+                elif err_id == ERR_SESSION_EXPIRED_OR_INVALID:
+                    raise SessionIsExpiredOrInvalidError('%s: %s' % (err_msg, self.session.id))
+                else:
+                    raise EngageError(err_msg, err_code)
             error = (err_code, err_msg)
 
-        return (success, error)
+        return (was_successful, tree, error)
 
-    def _check_session(self):
-        if not self._session:
-            raise Exception('No Session')
+    def acquire_session(self):
+        if not self.session:
+            self.login()
+            if not self.session:
+                raise EngageError('No Session')
 
     def _request(self, doc, session_required=True):
         """Wraps the whole request mechanism"""
         if session_required:
-            self._check_session()
+            self.acquire_session()
 
         data = doc.toxml(encoding='utf-8')
         headers = {
-            'Content-Type': 'text/xml;charset=UTF-8'
+            'Content-Type': 'text/xml;charset=UTF-8',
         }
 
         url = self._engage_url
-        if session_required and self._session:
-            url = '%s;jsessionid=%s' % (url, str(self._session))
+
+        # Append jsessionid to URL if we have a session
+        if self._session is not None:
+            url += ';jsessionid=%s' % str(self._session)
 
         response = self._requests.get(url, data=data, headers=headers)
         response.raise_for_status()
 
         return response
 
-
-class EngageApi(EngageApiCore):
-    def __init__(self, username, password, url, **kwargs):
-        super(EngageApi, self).__init__()
-
-        self._username = username
-        self._password = password
-        self._engage_url = url
-
-    def _check_session(self):
-        if not self._session:
-            self.login()
-            if not self._session:
-                raise Exception('No Session')
+    def get(self, doc, session_required=True, raise_on_error=True):
+        response = self._request(doc, session_required)
+        return self.has_errors(response, raise_on_error)
 
     def login(self, username=None, password=None):
         """Logs in to Engage's API.
@@ -422,32 +493,34 @@ class EngageApi(EngageApiCore):
         if not password:
             password = self._password
 
-        body_node, doc = self._generate_envelope('Login')
+        body_node, doc = self.generate_envelope('Login')
+        self.append_text_node_to('USERNAME', username, body_node)
+        self.append_text_node_to('PASSWORD', password, body_node)
 
-        self._append_text_node_to('USERNAME', username, body_node)
-        self._append_text_node_to('PASSWORD', password, body_node)
-
-        response = self._request(doc, False)
-
-        success, self.error = self._success(response)
+        (success, tree, self.error) = self.get(doc, False)
         if success:
-            tree = fromstring(response.text)
-            p = tree.find("Body/RESULT/SESSIONID")
-            self._session = Session(p.text)
+            session_id = tree.find("Body/RESULT/SESSIONID").text
+            self._session = Session(session_id)
 
         return success
 
     def logout(self):
         """Logs out from Engage's API and removes the session"""
-        body_node, doc = self._generate_envelope('Logout')
-
-        response = self._request(doc)
-
-        success, self.error = self._success(response)
+        body_node, doc = self.generate_envelope('Logout')
+        (success, tree, self.error) = self.get(doc)
         if success:
             self._session = None
 
         return success
+
+
+class EngageApi(EngageApiCore):
+    def __init__(self, username, password, url, **kwargs):
+        super(EngageApi, self).__init__()
+
+        self._username = username
+        self._password = password
+        self._engage_url = url
 
     def get_lists(self, visibility, list_type):
         """Fetches lists.
@@ -459,18 +532,15 @@ class EngageApi(EngageApiCore):
         Returns:
             list -- List of lists. Whereby the type depends on the list_type you requested.
         """
-        body_node, doc = self._generate_envelope('GetLists')
+        body_node, doc = self.generate_envelope('GetLists')
 
-        self._append_text_node_to('VISIBILITY', str(visibility), body_node)
-        self._append_text_node_to('LIST_TYPE', str(list_type), body_node)
+        self.append_text_node_to('VISIBILITY', str(visibility), body_node)
+        self.append_text_node_to('LIST_TYPE', str(list_type), body_node)
 
-        response = self._request(doc)
-
-        success, self.error = self._success(response)
+        (success, tree, self.error) = self.get(doc)
 
         lists = []
         if success:
-            tree = fromstring(response.text)
             for el in tree.findall("Body/RESULT/LIST"):
                 list = List.from_element(el, self)
                 lists.append(list)
@@ -504,14 +574,12 @@ class EngageApi(EngageApiCore):
         if not isinstance(recipient, Contact):
             raise Exception('Invalid recipient')
 
-        body_node, doc = self._generate_envelope('ListRecipientMailings')
+        body_node, doc = self.generate_envelope('ListRecipientMailings')
 
-        self._append_text_node_to('LIST_ID', str(list.id), body_node)
-        self._append_text_node_to('RECIPIENT_ID', str(recipient.id), body_node)
+        self.append_text_node_to('LIST_ID', str(list.id), body_node)
+        self.append_text_node_to('RECIPIENT_ID', str(recipient.id), body_node)
 
-        response = self._request(doc)
-
-        success, self.error = self._success(response)
+        (success, tree, self.error) = self.get(doc)
 
         print success, self.error
 
@@ -530,16 +598,12 @@ class EngageApi(EngageApiCore):
         if not isinstance(list, Database) and not isinstance(list, Query) and not isinstance(list, RelationalTable):
             raise Exception('Invalid list')
 
-        body_node, doc = self._generate_envelope('GetListMetaData')
+        body_node, doc = self.generate_envelope('GetListMetaData')
 
-        self._append_text_node_to('LIST_ID', str(list.id), body_node)
+        self.append_text_node_to('LIST_ID', str(list.id), body_node)
 
-        response = self._request(doc)
-
-        success, self.error = self._success(response)
-
+        (success, tree, self.error) = self.get(doc)
         if success:
-            tree = fromstring(response.text)
             result_node = tree.find('Body/RESULT')
 
             table = Table()
@@ -551,7 +615,6 @@ class EngageApi(EngageApiCore):
                 default_value = getattr(item.find('DEFAULT_VALUE'), 'text', None)
 
                 table.add_column(Column(column_name, column_type, default_value, is_key=True))
-
 
             # NOTE: ``COLUMNS`` contains also ``KEY_COLUMNS``
             for item in result_node.findall('COLUMNS/COLUMN'):
@@ -568,43 +631,32 @@ class EngageApi(EngageApiCore):
 
             to_python(list,
                       in_el=result_node,
-                      str_keys=('ORGANIZATION_ID', 'SMS_KEYWORD'),
+                      str_keys=('ORGANIZATION_ID', ),
                       date_keys=('LAST_CONFIGURED', 'CREATED'),
-                      bool_keys=(
-                      'OPT_IN_FORM_DEFINED', 'OPT_OUT_FORM_DEFINED', 'PROFILE_FORM_DEFINED', 'OPT_IN_AUTOREPLY_DEFINED',
-                      'PROFILE_AUTOREPLY_DEFINED'),
+                      bool_keys=('OPT_IN_FORM_DEFINED', 'OPT_OUT_FORM_DEFINED', 'PROFILE_FORM_DEFINED',
+                                 'OPT_IN_AUTOREPLY_DEFINED', 'PROFILE_AUTOREPLY_DEFINED'),
                       _table=table)
 
         return success
 
-    def remove_recipient(self, list, email=None, columns={}):
-        if not isinstance(list, Database) and not isinstance(list, ContactList):
-            raise Exception('Invalid list')
-
+    def remove_recipient(self, list_id, email=None, columns={}):
         if email is None and not columns:
             raise Exception('You need to define an email or columns')
 
-        body_node, doc = self._generate_envelope('RemoveRecipient')
+        body_node, doc = self.generate_envelope('RemoveRecipient')
 
-        self._append_text_node_to('LIST_ID', str(list.id), body_node)
+        self.append_text_node_to('LIST_ID', str(list_id), body_node)
 
         if email is not None:
-            self._append_text_node_to('EMAIL', str(list.id), body_node)
+            self.append_text_node_to('EMAIL', email, body_node)
         elif columns:
-            for key in columns.keys():
-                column_node = doc.createElement('COLUMN')
-                body_node.appendChild(column_node)
-
-                self._append_text_node_to('NAME', key, column_node)
-                self._append_text_node_to('VALUE', columns[key], column_node)
+            self.append_columns_to(columns, body_node)
         else:
             pass
 
-        response = self._request(doc)
+        (success, tree, self.error) = self.get(doc)
 
-        success, self.error = self._success(response)
-
-        print success, self.error
+        return success
 
     def create_table(self, name, columns):
         """Creates a Relational Table"""
@@ -664,20 +716,56 @@ class EngageApi(EngageApiCore):
     def purge_data(self, target_id, source_id):
         raise NotImplementedError()
 
-    def add_recipient(self, database, created_from, **kwargs):
+    def add_recipient(self, list_id, created_from, columns, **kwargs):
         """Adds a new contact to an existing database"""
-        if not isinstance(database, Database):
-            raise ValueError('Invalid database')
-
-        body_node, doc = self._generate_envelope('AddRecipient')
-
-        self._append_text_node_to('CREATED_FROM', str(created_from), body_node)
+        if not created_from in CONTACT_CREATED_CHOICES:
+            raise EngageError('Invalid CREATED_FROM')
 
         if 'send_autoreply' in kwargs:
             raise NotImplementedError()
 
+        if 'allow_html' in kwargs:
+            raise NotImplementedError()
+
+        if 'visitor_key' in kwargs:
+            raise NotImplementedError()
+
+        body_node, doc = self.generate_envelope('AddRecipient')
+
+        self.append_text_node_to('LIST_ID', str(list_id), body_node)
+        self.append_text_node_to('CREATED_FROM', str(created_from), body_node)
+
         if 'update_if_found' in kwargs and kwargs.get('update_if_found') is True:
-            self._append_text_node_to('UPDATE_IF_FOUND', 'true', body_node)
+            self.append_text_node_to('UPDATE_IF_FOUND', 'true', body_node)
+
+        contact_lists = kwargs.get('contact_lists', [])
+        assert not isinstance(contact_lists, basestring)
+        if contact_lists:
+            contact_lists_node = doc.createElement('CONTACT_LISTS')
+            for contact_id in contact_lists:
+                self.append_text_node_to('CONTACT_LIST_ID', contact_id, contact_lists_node)
+            body_node.appendChild(contact_lists_node)
+
+        assert isinstance(columns, dict)
+        self.append_columns_to(columns, body_node)
+
+        sync_fields = kwargs.get('sync_fields', {})
+        assert isinstance(sync_fields, dict)
+        self.append_sync_fields_to(sync_fields, body_node)
+
+        (success, tree, self.error) = self.get(doc)
+
+        return success
+
+    def update_recipient(self, list_id, columns, **kwargs):
+        if 'recipient_id' in kwargs:
+            raise NotImplementedError()
+
+        if 'encoded_recipient_id' in kwargs:
+            raise NotImplementedError()
+
+        if 'send_autoreply' in kwargs:
+            raise NotImplementedError()
 
         if 'allow_html' in kwargs:
             raise NotImplementedError()
@@ -688,8 +776,27 @@ class EngageApi(EngageApiCore):
         if 'sync_fields' in kwargs:
             raise NotImplementedError()
 
-    def update_recipient(self, list_id, **kwargs):
-        raise NotImplementedError()
+        if 'snooze_settings' in kwargs:
+            raise NotImplementedError()
+
+        body_node, doc = self.generate_envelope('UpdateRecipient')
+
+        old_email = kwargs.get('old_email')
+        if old_email:
+            self.append_text_node_to('OLD_EMAIL', old_email, body_node)
+
+        self.append_text_node_to('LIST_ID', str(list_id), body_node)
+
+        assert isinstance(columns, dict)
+        self.append_columns_to(columns, body_node)
+
+        sync_fields = kwargs.get('sync_fields', {})
+        assert isinstance(sync_fields, dict)
+        self.append_sync_fields_to(sync_fields, body_node)
+
+        (success, tree, self.error) = self.get(doc)
+
+        return success
 
     def double_opt_in_recipient(self):
         raise NotImplementedError()
@@ -697,5 +804,34 @@ class EngageApi(EngageApiCore):
     def opt_out_recipient(self):
         raise NotImplementedError()
 
-    def select_recipient_data(self):
-        raise NotImplementedError()
+    def select_recipient_data(self, list_id, email, **kwargs):
+        """
+
+        :param list_id:
+        :type list_id:
+        :param email:
+        :type email:
+        :param kwargs:
+        :type kwargs:
+        :rtype: Contact
+        """
+        body_node, doc = self.generate_envelope('SelectRecipientData')
+        self.append_text_node_to('LIST_ID', str(list_id), body_node)
+        self.append_text_node_to('EMAIL', str(email), body_node)
+
+        recipient_id = kwargs.get('recipient_id')
+        if recipient_id:
+            self.append_text_node_to('RECIPIENT_ID', str(recipient_id), body_node)
+
+        encoded_recipient_id = kwargs.get('encoded_recipient_id')
+        if recipient_id:
+            self.append_text_node_to('ENCODED_RECIPIENT_ID', str(encoded_recipient_id), body_node)
+
+        visitor_key = kwargs.get('visitor_key')
+        if recipient_id:
+            self.append_text_node_to('VISITOR_KEY', str(visitor_key), body_node)
+
+        (success, tree, self.error) = self.get(doc)
+        if success:
+            for el in tree.findall("Body/RESULT"):
+                return Contact.from_element(el, self)

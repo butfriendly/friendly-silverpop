@@ -1,3 +1,4 @@
+import pytest
 from friendly.silverpop.engage import Table, Column, COLUMN_TYPE_TEXT, COLUMN_TYPE_YESNO, Contact
 
 
@@ -15,6 +16,16 @@ def test_table_definition():
     table.add_column(Column('lastname', COLUMN_TYPE_TEXT))
     assert table.has_column('lastname')
     assert not 'lastname' in table.key_columns
+
+    assert len(table.column_names) == 3
+
+    table.drop_column('firstname')
+
+    assert len(table.column_names) == 2
+
+    # We cannot delete key columns
+    with pytest.raises(Exception) as e:
+        table.drop_column('email')
 
 
 def test_access_to_invalid_attribute_on_contact():

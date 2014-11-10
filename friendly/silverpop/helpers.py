@@ -28,6 +28,7 @@ import re
 from datetime import datetime
 from dateutil.parser import parse as parse_datetime
 
+
 def to_python(obj,
     str_keys=None,
     date_keys=None,
@@ -52,7 +53,7 @@ def to_python(obj,
         def get_value(key):
             node = kwargs.get('in_el').find(key)
             if node is None:
-                raise Exception('Node '+ key +' not found')
+                raise Exception('Node ' + key + ' not found')
             return node.text
     else:
         raise Exception('Muhaa')
@@ -140,6 +141,8 @@ def to_api(in_dict, int_keys=None, date_keys=None, bool_keys=None):
 
 first_cap_re = re.compile('(.)([A-Z][a-z]+)')
 all_cap_re = re.compile('([a-z0-9])([A-Z])')
+
+
 def pep_up(name):
     s1 = first_cap_re.sub(r'\1_\2', name)
     s2 = all_cap_re.sub(r'\1_\2', s1).lower()
