@@ -1,9 +1,11 @@
 import re
 import pytest
-from friendly.silverpop.engage.constants import LIST_VISIBILITY_SHARED, EXPORT_TYPE_ALL, EXPORT_FORMAT_CSV
+from friendly.silverpop.engage.constants import LIST_VISIBILITY_SHARED, EXPORT_TYPE_ALL, EXPORT_FORMAT_CSV, \
+    LIST_VISIBILITY_PRIVATE, COLUMN_TYPE_TEXT
 from friendly.silverpop.engage.resources import Session, Contact
 from friendly.silverpop.engage.api import CONTACT_CREATED_MANUALLY
-from friendly.silverpop.engage.exceptions import RecipientAlreadyExistsError, EngageError
+from friendly.silverpop.engage.exceptions import RecipientAlreadyExistsError, EngageError, ColumnAlreadyExistsError
+from friendly.silverpop.helpers import pep_up
 import settings
 
 
@@ -195,3 +197,30 @@ def test_update_recipient_with_sync_fields(engage_api):
 def test_update_recipient_with_snooze_settings(engage_api):
     with pytest.raises(NotImplementedError) as e:
         engage_api.update_recipient(settings.ENGAGE_DATABASE_ID, dict(email='test@example.com'), snooze_settings=1)
+
+
+def test_create_contact_list(engage_api):
+    success = engage_api.create_contact_list(settings.ENGAGE_DATABASE_ID, 'Test List', LIST_VISIBILITY_PRIVATE)
+    assert success is True
+
+
+def test_add_list_column_text(engage_api, test_database):
+    COLUMN_NAME = 'My Text COLUMN'
+    PEPED_COLUMN_NAME = pep_up(COLUMN_NAME)
+
+    # Create column
+    try:
+        success = engage_api.add_list_column(
+            settings.ENGAGE_DATABASE_ID, COLUMN_NAME, COLUMN_TYPE_TEXT, '')
+        assert success is True
+    except ColumnAlreadyExistsError:
+        pass
+
+    # Retrieve database's meta info
+    success = engage_api.get_list_meta_data(test_database)
+    assert success is True
+
+    # Check for column
+    table = test_database._table
+    assert PEPED_COLUMN_NAME in table.column_names
+    assert (table[PEPED_COLUMN_NAME]).type == COLUMN_TYPE_TEXT

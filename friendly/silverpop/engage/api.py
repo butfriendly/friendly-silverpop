@@ -6,10 +6,11 @@ from .constants import ERR_RECIPIENT_ALREADY_EXISTS, ERR_SESSION_EXPIRED_OR_INVA
     LIST_TYPE_CONTACT_LIST, LIST_TYPE_DATABASE, LIST_TYPE_QUERY, LIST_TYPE_SEED_LIST, LIST_TYPE_TEST_LIST, \
     LIST_TYPE_SUPPRESSION_LIST, LIST_TYPE_RELATIONAL_TABLE, CONTACT_CREATED_FROM_DATABASE, CONTACT_CREATED_MANUALLY, \
     CONTACT_CREATED_FROM_TRACKING_DB, CONTACT_CREATED_OPTED_IN, EXPORT_TYPE_ALL, EXPORT_TYPE_OPT_IN, EXPORT_TYPE_OPT_OUT, \
-    EXPORT_TYPE_UNDELIVERABLE, EXPORT_FORMAT_CSV, EXPORT_FORMAT_TAB, EXPORT_FORMAT_PIPE
+    EXPORT_TYPE_UNDELIVERABLE, EXPORT_FORMAT_CSV, EXPORT_FORMAT_TAB, EXPORT_FORMAT_PIPE, LIST_VISIBILITY_CHOICES, \
+    COLUMN_TYPE_CHOICES, ERR_COLUMN_ALREADY_EXISTS
 from .exceptions import (
     RecipientAlreadyExistsError, SessionIsExpiredOrInvalidError, EngageError, UnsupportedExportTypeError,
-    UnsupportedExportFormatError)
+    UnsupportedExportFormatError, ColumnAlreadyExistsError)
 from .resources import (
     Session, List, Column, Table, Contact, Database, Query, RelationalTable)
 
@@ -151,6 +152,8 @@ class EngageApiCore(object):
                     raise RecipientAlreadyExistsError(err_msg, err_code)
                 elif err_id == ERR_SESSION_EXPIRED_OR_INVALID:
                     raise SessionIsExpiredOrInvalidError('%s: %s' % (err_msg, self.session.id))
+                elif err_id == ERR_COLUMN_ALREADY_EXISTS:
+                    raise ColumnAlreadyExistsError(err_msg, err_code)
                 else:
                     raise EngageError(err_msg, err_code)
             error = (err_code, err_msg)
@@ -257,6 +260,7 @@ class EngageApi(EngageApiCore):
         return lists
 
     def export_list(self, database, export_type, export_format, **kwargs):
+        """Exports a database"""
         list_id = database
         if isinstance(database, Database):
             list_id = database.id
@@ -306,6 +310,30 @@ class EngageApi(EngageApiCore):
 
         return (success, job_id, file_path)
 
+    def add_list_column(self, database, column_name, column_type, default_value, **kwargs):
+        database_id = database
+        if isinstance(database, Database):
+            database_id = database.id
+
+        if column_type not in COLUMN_TYPE_CHOICES:
+            raise ValueError('Unknown column-type: %r' % column_type)
+
+        body_node, doc = generate_envelope('AddListColumn')
+        append_text_node_to('LIST_ID', str(database_id), body_node)
+        append_text_node_to('COLUMN_NAME', column_name, body_node)
+        append_text_node_to('COLUMN_TYPE', str(column_type), body_node)
+        append_text_node_to('DEFAULT', default_value, body_node)
+
+        selection_values = kwargs.get('selection_values', [])
+        assert isinstance(selection_values, list)
+        append_list_to(selection_values, body_node,
+                       container_node_name='SELECTION_VALUES',
+                       item_node_name='VALUE')
+
+        (success, tree, self.error) = self.get(doc)
+
+        return success
+
     def get_contact_lists(self, visibility):
         return self.get_lists(visibility, LIST_TYPE_CONTACT_LIST)
 
@@ -342,11 +370,11 @@ class EngageApi(EngageApiCore):
 
         print success, self.error
 
-    def get_list_meta_data(self, list):
+    def get_list_meta_data(self, entity):
         """Fetches meta-data and updates the list with 'em.
 
         Args:
-            list (List): List you want to fetch the meta-data for.
+            entity (List|Database): List you want to fetch the meta-data for.
 
         Returns:
             bool -- Tells you wether the operation was successful or not
@@ -354,12 +382,11 @@ class EngageApi(EngageApiCore):
         .. note::
             ``KEY_COLUMNS`` and ``SELECTION_VALUES`` aren't supported currently.
         """
-        if not isinstance(list, Database) and not isinstance(list, Query) and not isinstance(list, RelationalTable):
-            raise Exception('Invalid list')
+        if not isinstance(entity, Database) and not isinstance(entity, Query) and not isinstance(entity, RelationalTable):
+            raise ValueError('Invalid entity')
 
         body_node, doc = generate_envelope('GetListMetaData')
-
-        append_text_node_to('LIST_ID', str(list.id), body_node)
+        append_text_node_to('LIST_ID', str(entity.id), body_node)
 
         (success, tree, self.error) = self.get(doc)
         if success:
@@ -388,14 +415,14 @@ class EngageApi(EngageApiCore):
 
                 table.add_column(Column(column_name, column_type, default_value))
 
-            to_python(list,
-                      in_el=result_node,
-                      str_keys=('ORGANIZATION_ID', ),
-                      date_keys=('LAST_CONFIGURED', 'CREATED'),
-                      bool_keys=('OPT_IN_FORM_DEFINED', 'OPT_OUT_FORM_DEFINED', 'PROFILE_FORM_DEFINED',
-                                 'OPT_IN_AUTOREPLY_DEFINED', 'PROFILE_AUTOREPLY_DEFINED'),
-                      _table=table)
-
+            to_python(
+                entity,
+                in_el=result_node,
+                str_keys=('ORGANIZATION_ID', ),
+                date_keys=('LAST_CONFIGURED', 'CREATED'),
+                bool_keys=('OPT_IN_FORM_DEFINED', 'OPT_OUT_FORM_DEFINED', 'PROFILE_FORM_DEFINED',
+                           'OPT_IN_AUTOREPLY_DEFINED', 'PROFILE_AUTOREPLY_DEFINED'),
+                _table=table)
         return success
 
     def remove_recipient(self, list_id, email=None, columns={}):
@@ -453,8 +480,28 @@ class EngageApi(EngageApiCore):
 
         raise NotImplementedError()
 
-    def create_contact_list(self, list_id, list_name, visibility, **kwargs):
-        raise NotImplementedError()
+    def create_contact_list(self, database, list_name, visibility, **kwargs):
+        database_id = database
+        if isinstance(database, Database):
+            database_id = database.id
+
+        if 'parent_folder_id' in kwargs:
+            raise NotImplementedError()
+
+        if 'parent_folder_path' in kwargs:
+            raise NotImplementedError()
+
+        if visibility not in LIST_VISIBILITY_CHOICES:
+            raise ValueError('Unknown list visibility: %r' % visibility)
+
+        body_node, doc = generate_envelope('CreateContactList')
+        append_text_node_to('DATABASE_ID', str(database_id), body_node)
+        append_text_node_to('CONTACT_LIST_NAME', list_name, body_node)
+        append_text_node_to('VISIBILITY', str(visibility), body_node)
+
+        (success, tree, self.error) = self.get(doc)
+
+        return success
 
     def add_contact_to_contact_list(self, list_id, contact_id):
         raise NotImplementedError()

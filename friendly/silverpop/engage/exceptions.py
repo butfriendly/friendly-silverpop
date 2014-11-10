@@ -25,5 +25,9 @@ class UnsupportedExportTypeError(EngageError):
     pass
 
 
+class ColumnAlreadyExistsError(EngageError):
+    pass
+
+
 class UnsupportedExportFormatError(EngageError):
     pass

@@ -73,6 +73,9 @@ class Table(object):
         """
         return column_name in self._columns
 
+    def __getitem__(self, key):
+        return self._columns[key]
+
     def add_column(self, column, replace=False, **kwargs):
         """Adds/replaces a column at the table
 
@@ -194,7 +197,7 @@ class Column(object):
         self._mapping[self.id] = column_name  # Remember the name
 
         self.name = column_name
-        self.type = column_type
+        self.type = int(column_type) if column_type else None
         self.default = default_value
 
         self.is_key = kwargs.get('is_key', False)
