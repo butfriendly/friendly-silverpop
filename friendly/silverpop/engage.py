@@ -318,9 +318,9 @@ class EngageApiCore(object):
         self._password = None
         self._engage_url = None
 
-        self._session = None
+        self._session = None  # SilverPop session
 
-        self._s = requests.session()
+        self._requests = requests.session()  # Requests session
 
     def _generate_envelope(self, action=None):
         """Generates common XML envelope which is required for all requests"""
@@ -381,15 +381,12 @@ class EngageApiCore(object):
         headers = {
             'Content-Type': 'text/xml;charset=UTF-8'
         }
-        config = {
-            #            'verbose': sys.stderr
-        }
 
         url = self._engage_url
         if session_required and self._session:
             url = '%s;jsessionid=%s' % (url, str(self._session))
 
-        response = self._s.get(url, data=data, headers=headers, config=config)
+        response = self._requests.get(url, data=data, headers=headers)
         response.raise_for_status()
 
         return response
