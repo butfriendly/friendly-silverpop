@@ -72,10 +72,10 @@ class Resource(object):
 
 class Session(object):
     def __init__(self, session_id):
-        self._id = session_id
+        self.id = session_id
 
     def __str__(self):
-        return self._id
+        return self.id
 
     def close(self):
         pass
