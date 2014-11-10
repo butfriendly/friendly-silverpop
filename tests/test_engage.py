@@ -3,6 +3,7 @@
 import nose
 import re
 import datetime
+from friendly.silverpop.engage.resources import Database
 
 
 def test_engage_basic_attributes(test_database):
@@ -39,7 +40,9 @@ def test_engage_basic_attributes(test_database):
 
 
 def test_engage_get_meta_data(test_database):
-    db = test_database
+    db = Database()
+    db.id = test_database.id
+    db.api = test_database.api
 
     # The database instance shouldn't have any meta props
     assert not hasattr(db, 'organization_id')

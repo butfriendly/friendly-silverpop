@@ -19,3 +19,9 @@ def test_database(engage_api):
     assert db is not None
     assert 'test' in db.name.lower()
     return db
+
+
+def random_string(length=16):
+    import random
+    import string
+    return ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(length))

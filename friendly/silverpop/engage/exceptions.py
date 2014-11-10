@@ -29,5 +29,9 @@ class ColumnAlreadyExistsError(EngageError):
     pass
 
 
+class ContactListNameAlreadyExists(EngageError):
+    pass
+
+
 class UnsupportedExportFormatError(EngageError):
     pass

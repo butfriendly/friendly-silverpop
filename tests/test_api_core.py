@@ -1,12 +1,15 @@
 import re
+import datetime
 import pytest
 from friendly.silverpop.engage.constants import LIST_VISIBILITY_SHARED, EXPORT_TYPE_ALL, EXPORT_FORMAT_CSV, \
     LIST_VISIBILITY_PRIVATE, COLUMN_TYPE_TEXT
 from friendly.silverpop.engage.resources import Session, Contact
 from friendly.silverpop.engage.api import CONTACT_CREATED_MANUALLY
-from friendly.silverpop.engage.exceptions import RecipientAlreadyExistsError, EngageError, ColumnAlreadyExistsError
+from friendly.silverpop.engage.exceptions import RecipientAlreadyExistsError, EngageError, ColumnAlreadyExistsError, \
+    ContactListNameAlreadyExists
 from friendly.silverpop.helpers import pep_up
 import settings
+from tests.conftest import random_string
 
 
 def test_engage_login_and_logout(engage_api):
@@ -200,8 +203,14 @@ def test_update_recipient_with_snooze_settings(engage_api):
 
 
 def test_create_contact_list(engage_api):
-    success = engage_api.create_contact_list(settings.ENGAGE_DATABASE_ID, 'Test List', LIST_VISIBILITY_PRIVATE)
+    # We have to use random string for list-names as we cannot delete them though the API :(
+    list_name = random_string() + datetime.datetime.now().isoformat()
+
+    success = engage_api.create_contact_list(settings.ENGAGE_DATABASE_ID, list_name, LIST_VISIBILITY_PRIVATE)
     assert success is True
+
+    with pytest.raises(ContactListNameAlreadyExists) as e:
+        success = engage_api.create_contact_list(settings.ENGAGE_DATABASE_ID, list_name, LIST_VISIBILITY_PRIVATE)
 
 
 def test_add_list_column_text(engage_api, test_database):

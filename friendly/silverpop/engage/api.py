@@ -7,10 +7,10 @@ from .constants import ERR_RECIPIENT_ALREADY_EXISTS, ERR_SESSION_EXPIRED_OR_INVA
     LIST_TYPE_SUPPRESSION_LIST, LIST_TYPE_RELATIONAL_TABLE, CONTACT_CREATED_FROM_DATABASE, CONTACT_CREATED_MANUALLY, \
     CONTACT_CREATED_FROM_TRACKING_DB, CONTACT_CREATED_OPTED_IN, EXPORT_TYPE_ALL, EXPORT_TYPE_OPT_IN, EXPORT_TYPE_OPT_OUT, \
     EXPORT_TYPE_UNDELIVERABLE, EXPORT_FORMAT_CSV, EXPORT_FORMAT_TAB, EXPORT_FORMAT_PIPE, LIST_VISIBILITY_CHOICES, \
-    COLUMN_TYPE_CHOICES, ERR_COLUMN_ALREADY_EXISTS
+    COLUMN_TYPE_CHOICES, ERR_COLUMN_ALREADY_EXISTS, ERR_CONTACT_LIST_NAME_ALREADY_EXISTS
 from .exceptions import (
     RecipientAlreadyExistsError, SessionIsExpiredOrInvalidError, EngageError, UnsupportedExportTypeError,
-    UnsupportedExportFormatError, ColumnAlreadyExistsError)
+    UnsupportedExportFormatError, ColumnAlreadyExistsError, ContactListNameAlreadyExists)
 from .resources import (
     Session, List, Column, Table, Contact, Database, Query, RelationalTable)
 
@@ -154,6 +154,8 @@ class EngageApiCore(object):
                     raise SessionIsExpiredOrInvalidError('%s: %s' % (err_msg, self.session.id))
                 elif err_id == ERR_COLUMN_ALREADY_EXISTS:
                     raise ColumnAlreadyExistsError(err_msg, err_code)
+                elif err_id == ERR_CONTACT_LIST_NAME_ALREADY_EXISTS:
+                    raise ContactListNameAlreadyExists(err_msg, err_code)
                 else:
                     raise EngageError(err_msg, err_code)
             error = (err_code, err_msg)
