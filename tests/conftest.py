@@ -10,7 +10,7 @@ def engage_api():
 
 @pytest.fixture(scope='session')
 def test_database(engage_api):
-    # Fetch all shared databases of the account
+    # Fetch all private databases of the account
     databases = engage_api.get_databases(LIST_VISIBILITY_PRIVATE)
 
     # Locate our test database
