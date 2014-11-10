@@ -47,7 +47,7 @@ CONTACT_CREATED_CHOICES = (
 )
 
 class Resource(object):
-    _string_keys = []
+    _str_keys = []
     _int_keys = []
     _date_keys = []
     _bool_keys = []
